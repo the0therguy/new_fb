@@ -38,7 +38,7 @@ def driver_connection():
    chrome_options.add_argument('--remote-debugging-port=9222')
    chrome_options.add_argument('--disable-notifications')
    chrome_options.add_argument('--ignore-certificate-errors')
-  #  chrome_options.add_argument("--headless")
+   chrome_options.add_argument("--headless")
    driver = webdriver.Chrome(service=chrome_service,options=chrome_options)
    return driver
 
