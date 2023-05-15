@@ -3,12 +3,11 @@ import requests
 import re
 import os
 
-LOGIN_URL = "https://m.facebook.com/login.php?refsrc=https%3A%2F%2Fm.facebook.com%2F&amp;refid=8"
+ACTION_URL = "https://m.facebook.com/login.php?refsrc=https%3A%2F%2Fm.facebook.com%2F&amp;refid=8"
 def facebook_login(mail, pwd):
     session = requests.Session()
     r = session.get('https://www.facebook.com/')
     soup = BeautifulSoup(r.content,'html.parser')
-    action_url = LOGIN_URL
     inputs = soup.find('form').find_all('input', {'type': ['hidden', 'submit']})
     post_data = {input.get('name'): input.get('value')  for input in inputs}
     post_data['email'] = mail
@@ -21,7 +20,7 @@ def facebook_login(mail, pwd):
         cookies = {'_js_datr' : datr}
     else:
         return False
-    return session.post(action_url, data=post_data, cookies=cookies, allow_redirects=False).cookies.get_dict()
+    return session.post(ACTION_URL, data=post_data, cookies=cookies, allow_redirects=False).cookies.get_dict()
 
 
 def get_cookies():
@@ -47,9 +46,15 @@ def get_env_value(env_variable):
       print(error_msg)
 
 def get_comments(comments):
-    for comment in comments:
-        # e.g. ...print them
-        print(comment)
-        # e.g. ...get the replies for them
-        for reply in comment['replies']:
-            print(' ', reply)
+    print(comments)
+
+def get_city(user_dct):
+    if 'வசித்த இடங்கள்' not in user_dct:
+        return None
+    else:
+        city = user_dct['வசித்த இடங்கள்']
+        if '\n' in city:
+            return city.split("\n")[0]
+        else:
+            return city
+    
