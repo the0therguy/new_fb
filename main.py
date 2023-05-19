@@ -8,7 +8,9 @@ import os
 from pathlib import Path
 import json
 from utils import get_env_value, facebook_login, get_city
-from automate import fb_join_request
+from automate import fb_join_request, get_group_posts
+
+
 ENV_PATH = Path(__file__).resolve().parent/ ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
@@ -31,44 +33,18 @@ collection = db[collection_name]
 
 @app.route('/posts', methods=['POST'])
 def get_post():
-    url = request.form.get('url')
-    group = str(url.rstrip("/").split("/")[-1])
-    group_info = fb.get_group_info(group)
-    group_type = group_info['type']
-    if group_type != 'தனிப்பட்டது குழு':
-        group_id = group_info['id']
-        group_name = group_info['name']
-        print("Group_Id ",group_id,"Group_Name  ",group_name)
-        time_window = datetime.datetime.now() - timedelta(hours=1)
-        cookies = facebook_login(fb_email,fb_password)
-        scraped_posts = []
-        try:
-            for post in fb.get_posts(account=group_id, pages=1,cookies=cookies,options={"comments": 100}):
-                post_time = post['time']
-                if post_time >= time_window:
-                    post_info = {
-                        "user_id": post['user_id'],
-                        "username": post['username'],
-                        "post_text": post['text'],
-                        "post_id": post['post_id'],
-                        "group_name": group_name,
-                        "post_url": fb_url + f"groups/{group_id}/posts/{post['post_id']}",
-                        "post_time": post['time'],
-                        "user_city": get_city(fb.get_profile(post['user_id'],cookies=cookies)),
-                        "post_comments": post['comments_full']
-                    }
-                    
-                    scraped_posts.append(post_info)
-                    print("===================================================================================")
-                        # # Check for duplicates in the database
-            print(scraped_posts)
-            for post in scraped_posts:
-                if collection.find_one({'post_id': post['post_id']}) is None:
-                    # Post is not already in the database, insert it
-                    collection.insert_one(post)
-            return jsonify({'posts': scraped_posts})
-        except:
-        #     # Retrieve all posts from the database and return as JSON response
+    try:
+        data = request.get_json(force=True)
+        group_url = data.get('url') if data.get("url") is not None else ""
+        keywords = data.get("keywords") if data.get("keywords") is not None else ""
+        post_data = get_group_posts(group_url, keywords, fb_email,fb_password)
+        if bool (post_data):
+            if collection.find_one({'post_id': post_data['post_id']}) is None:
+                # Post is not already in the database, insert it
+                collection.insert_one(post_data)
+                return jsonify({'posts': post_data})
+        else:
+            # Retrieve all posts from the database and return as JSON response
             all_posts = []
             for post in collection.find():
                 all_posts.append({
@@ -79,19 +55,24 @@ def get_post():
                     "group_name": post['group_name'],
                     "post_url": post['post_url'],
                     "post_time": post['post_time'],
-                    "post_comments": post['post_comments'],
-                    "user_city": post['user_city']
+                    "comments": post['comments'],
+                    "lives_in": post['lives_in']
                 })
-            
             return jsonify({'posts': all_posts})
+    except:
+        return jsonify({'Message': "There were some problem at the server...Please try again after sometime."})
         
+
 @app.route('/join_request', methods=['POST'])
 def join_request():
-    url = request.form.get('url')
+    url = request.get_json(force=True).get("url")
     message = fb_join_request(url)
     json_message = json.dumps(message)  # Serialize the message to JSON
     return Response(json_message, mimetype='application/json')
 
+@app.route('/', methods=['GET'])
+def home():
+    return 'Hello world'
 
 if __name__ == '__main__':
     app.run(debug=True,port=5000)

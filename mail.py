@@ -21,7 +21,6 @@ def send_join_request_email(group_url):
     # create the email message
     sender_email = get_env_value("SENDER_EMAIL")
     receiver_email = get_env_value("RECEIVER_EMAIL")
-    receiver_email = 'karthideva444@gmail.com'
     subject = "Private Facebook Group Join Request"
     body = f'''\
 Hi Admin,
