@@ -37,12 +37,13 @@ def get_post():
         data = request.get_json(force=True)
         group_url = data.get('url') if data.get("url") is not None else ""
         keywords = data.get("keywords") if data.get("keywords") is not None else ""
+        print('keywords  ', keywords)
         post_data = get_group_posts(group_url, keywords, fb_email,fb_password)
-        if bool (post_data):
+        if bool(post_data):
             if collection.find_one({'post_id': post_data['post_id']}) is None:
                 # Post is not already in the database, insert it
                 collection.insert_one(post_data)
-                return jsonify({'posts': post_data})
+            return jsonify({'posts': post_data})
         else:
             # Retrieve all posts from the database and return as JSON response
             all_posts = []

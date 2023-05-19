@@ -74,8 +74,11 @@ def fb_join_request(group_url):
 def get_user_data(html, driver):
   soup = BeautifulSoup(html,'html.parser')
   user_data = soup.find("a")['href'].split("?")[0]
+  print("User_data", user_data)
   user_id = user_data.rstrip("/").split("/")[-1]
+  print("USER ID  ", user_id)
   user_url = fb_url + user_id + '/about'
+  print("User URL  ", user_url)
   driver.get(user_url)
   try: lives_in = driver.find_element(By.XPATH,"//span[contains(text(), 'Lives')]/a").text
   except: lives_in = None
@@ -190,7 +193,7 @@ def get_group_posts(url, keywords, email, password):
   post_url = driver.current_url
   post_id = post_url.rstrip("/").split("/")[-1]
   post_text,group_name = get_post_data(driver.page_source, driver)
-  if (any(name in post_text for name in keywords)):
+  if any(name in post_text for name in keywords):
     post_comments = get_post_comments(driver)
     comments = prepare_comments(post_comments, post_text)
     post_data['post_url'] = post_url
@@ -201,9 +204,6 @@ def get_group_posts(url, keywords, email, password):
     post_data['post_time'] = post_time
     user_data = dict(zip(["username", "user_id", "lives_in"], get_user_data(fb_feed, driver)))
     post_data.update(user_data)
-  driver.close()
+  print(post_data)
   driver.quit()
   return post_data
-
-# get_group_posts("https://www.facebook.com/groups/2901590883255386")
-
