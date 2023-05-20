@@ -9,6 +9,7 @@ from pathlib import Path
 import json
 from utils import get_env_value, facebook_login, get_city
 from automate import fb_join_request, get_group_posts
+from bson import ObjectId
 
 
 ENV_PATH = Path(__file__).resolve().parent/ ".env"
@@ -43,6 +44,8 @@ def get_post():
             if collection.find_one({'post_id': post_data['post_id']}) is None:
                 # Post is not already in the database, insert it
                 collection.insert_one(post_data)
+                del post_data['_id']
+                return jsonify({'posts': post_data})
             return jsonify({'posts': post_data})
         else:
             # Retrieve all posts from the database and return as JSON response
@@ -60,8 +63,9 @@ def get_post():
                     "lives_in": post['lives_in']
                 })
             return jsonify({'posts': all_posts})
-    except:
-        return jsonify({'Message': "There were some problem at the server...Please try again after sometime."})
+    except Exception as exp:
+        print("Error:",repr(exp))
+        return jsonify({'Message': f"There were some problem at the server...Please try again after sometime."})
         
 
 @app.route('/join_request', methods=['POST'])

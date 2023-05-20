@@ -39,7 +39,7 @@ def driver_connection():
    chrome_options.add_argument('--remote-debugging-port=9222')
    chrome_options.add_argument('--disable-notifications')
    chrome_options.add_argument('--ignore-certificate-errors')
-   chrome_options.add_argument("--headless")
+  #  chrome_options.add_argument("--headless")
    driver = webdriver.Chrome(service=chrome_service,options=chrome_options)
    return driver
 
@@ -136,17 +136,34 @@ def prepare_comments(comments,post_text):
           comments_list.append(temp_dct)
     return comments_list
 
-def get_post_data(html,driver):
+def get_post_data(html):
   soup = BeautifulSoup(html,'html.parser')
   group_name = soup.find("h1").text
-  messages = soup.find_all('div', {'data-ad-comet-preview': 'message'})
-  if len(messages) != 0:
-    post_text = messages[0].get_text()
-  else:
-    post_text = ''
-  return post_text,group_name
+  # messages = soup.find_all('div', {'data-ad-comet-preview': 'message'})
+  # # except: messages = soup.find('div', {'dir': 'auto'}).text
+  # if len(messages) != 0:
+  #   post_text = messages[0].text
+  # else:
+  #   post_text = ''
+  return group_name
 
-def get_post_comments(driver):
+def extract_comments(html_content):
+    comments = []
+    soup = BeautifulSoup(html_content, 'html.parser')
+    pattern = re.compile(r'\d+')
+    for div in soup.find_all('span'):
+        if div.find_all(text=True, recursive=False) and not div.find_all(True):
+            div_text = div.get_text()
+            pattern = re.compile(r'\d+')
+            if not re.search(pattern, div_text):
+                comments.append(div.text)
+    for div in soup.find_all('div'):
+        if div.find_all(text=True, recursive=False) and not div.find_all(
+        True)and 'Reply' not in div.get_text() and 'Share' not in div.get_text() and 'Like' not in div.get_text():
+            comments.append(div.text)
+    return comments
+
+def get_post_comments(driver,post_text):
   comments_lst = []
   try:
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -159,13 +176,46 @@ def get_post_comments(driver):
     sleep(random.randint(2,4))
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     sleep(random.randint(2,3))
-    comments = driver.find_elements(By.CSS_SELECTOR,"div[dir='auto'][style='text-align: start;']")
-    for comment in comments:
-      comment = comment.find_element(By.XPATH, "../../../..").text.strip()
-      comments_lst.append(comment)
+    try:
+       post_comments = driver.find_elements(By.XPATH,"//div[@role='article']")
+       for comment in post_comments:
+         try:
+          cmt_name,cmt_txt = extract_comments(comment.get_attribute("innerHTML"))
+          temp_dct = {"commenter_name":cmt_name,"commenter_text":cmt_txt}
+          print(temp_dct)
+          comments_lst.append(temp_dct)
+         except Exception as exp:
+            pass
+       comments = comments_lst
+    except:
+      comments = driver.find_elements(By.CSS_SELECTOR,"div[dir='auto'][style='text-align: start;']")
+      for comment in comments:
+        comment = comment.find_element(By.XPATH, "../../../..").text.strip()
+        comments_lst.append(comment)
+      comments = prepare_comments(comments_lst,post_text)
   except:
-    comments_lst = None
-  return comments_lst
+    comments = None
+  return comments
+
+def get_post_text(html):
+  text = ''
+  try:
+    soup = BeautifulSoup(html, 'html.parser')
+    fb_feed_text = soup.get_text()
+    try:
+      post_text = fb_feed_text.replace("Facebook",'').strip('\n')
+      text += re.split(r'(?i)(?:group\)|group)', post_text)[1]
+      if "All reactions" in text:
+          text = text.rsplit("All reactions",1)[0]
+      else:
+          text = text.rsplit("Like",1)[0]
+      if ' ' not in text[-60:]:
+        text = text[:-60]
+    except Exception as exp:
+      print("Regex error", exp)
+  except Exception as exp:
+     print("Error at getting post text function::", exp)
+  return text
   
 def get_group_posts(url, keywords, email, password):
   post_data = {}
@@ -181,7 +231,14 @@ def get_group_posts(url, keywords, email, password):
   except:
     pass
   feed = driver.find_element(By.XPATH,"//div[@role='feed']/div[2]")
+  try:
+    see_more = driver.find_element(By.XPATH,"//div[contains(text(), 'See more')]")
+    see_more.click()
+  except:
+     pass
   fb_feed = feed.get_attribute("innerHTML")
+  post_text = get_post_text(fb_feed)
+  # print(fb_feed_text)
   try:
     recent_post = feed.find_element(By.XPATH, "//span[@id]/span[2]/span/a")
   except:
@@ -192,10 +249,10 @@ def get_group_posts(url, keywords, email, password):
   sleep(random.randint(2,4))
   post_url = driver.current_url
   post_id = post_url.rstrip("/").split("/")[-1]
-  post_text,group_name = get_post_data(driver.page_source, driver)
-  if any(name in post_text for name in keywords):
-    post_comments = get_post_comments(driver)
-    comments = prepare_comments(post_comments, post_text)
+  group_name = get_post_data(driver.page_source)
+  if any(name.lower() in post_text.lower() for name in keywords):
+    comments = get_post_comments(driver,post_text)
+    # comments = prepare_comments(post_comments, post_text)
     post_data['post_url'] = post_url
     post_data['post_id'] = post_id
     post_data['post_text'] = post_text
@@ -204,6 +261,6 @@ def get_group_posts(url, keywords, email, password):
     post_data['post_time'] = post_time
     user_data = dict(zip(["username", "user_id", "lives_in"], get_user_data(fb_feed, driver)))
     post_data.update(user_data)
-  print(post_data)
   driver.quit()
+  print('post_data',post_data)
   return post_data
