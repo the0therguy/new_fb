@@ -84,7 +84,7 @@ def get_user_data(html, driver):
   except: lives_in = None
   sleep(random.randint(2,4))
   soup = BeautifulSoup(driver.page_source,'html.parser')
-  username = soup.find('h1').text
+  username = soup.select('h1:not(:-soup-contains("Notifications"))')[0].text
   return username,user_id,lives_in
 
 def create_post_timestamp(html):
@@ -138,7 +138,7 @@ def prepare_comments(comments,post_text):
 
 def get_post_data(html):
   soup = BeautifulSoup(html,'html.parser')
-  group_name = soup.find("h1").text
+  group_name = soup.select('h1:not(:-soup-contains("Notifications"))')[0].text
   # messages = soup.find_all('div', {'data-ad-comet-preview': 'message'})
   # # except: messages = soup.find('div', {'dir': 'auto'}).text
   # if len(messages) != 0:
